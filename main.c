@@ -13,9 +13,9 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
 
-#define STEPS 100
+#define STEPS 20
 #define GAMMA 0.9
-#define EPSILON 0.05
+#define EPISODES 150
 
 float world[12][4] = {-1.0};
 int current_x = 0, current_y = 0;
@@ -34,7 +34,7 @@ long random_at_most(long max) {
   do {
    x = random();
   }
-  // This is carefully written not to overflow
+  // This is carefully written not to overflow($1*cos($2))
   while (num_rand - defect <= (unsigned long)x);
 
   // Truncated division is intentional
@@ -88,8 +88,6 @@ int get_new_movement(float *movements){
     new_movement = duplicates[random_at_most(has_duplicate - 1)];
   }
 
-  //printf("max %f, has_duplicate %d, %d %d %d %d\n", max, has_duplicate, duplicates[0], duplicates[1],duplicates[2],duplicates[3]);
-
   return new_movement;
 }
 
@@ -111,41 +109,22 @@ void make_new_movement(int new_movement){
   }
 }
 
-//show the world vertically
-void show_world(){
-  int i, j;
-
-  for(i = 0; i < 12; i++){
-    for(j = 0; j < 4; j++){
-      if(i == current_x && j == current_y){
-        printf("X\t");
-      }
-      else{
-        printf("%.2f\t", world[i][j]);
-      }
-    }
-
-    printf("\n");
-  }
-
-  printf("\n\n");
-}
-
 int main(int argc, char **argv){
   int i, j;
   int episodes = 0;
+  int reach_objective_on_step[EPISODES] = {-1};
 
   struct timeval t;
 
   gettimeofday(&t, NULL);
   srand(t.tv_usec * t.tv_sec * getpid());
 
-  //start the cliff
+  //the cliff
   for(i = 1; i < 11; i++){
     world[i][0] = -100.0;
   }
 
-  //end point
+  //objective, super attractive
   world[11][0] = 100.0;
 
   do{
@@ -160,11 +139,9 @@ int main(int argc, char **argv){
 
       int new_movement = get_new_movement(movements);
       
-      //printf("Choose movement number: %d - %s\n", new_movement, new_movement == 0 ? "right" : (new_movement == 1 ? "left" : (new_movement == 2 ? "up" : "down")));
-
-      //if reaches the cliff then restarts
+      //if it reaches the cliff then restarts
       if((current_x > 0 && current_x < 11) && current_y == 0){
-        printf("Felt into the cliff at x %d y %d\n", current_x, current_y);
+        printf("Felt into the cliff at x %d y %d - step %d - episode %d\n", current_x, current_y, steps, episodes);
         current_x = current_y = 0;
         break;
       }
@@ -174,7 +151,7 @@ int main(int argc, char **argv){
          (current_x == 0 && new_movement == 1) ||
          (current_y == 3 && new_movement == 2) ||
          (current_y == 0 && new_movement == 3)){
-        printf("Tried to go out of the grid\n");
+        printf("Tried to go outside the grid\n");
         movements[new_movement] = world[current_x][current_y];
       }
 
@@ -182,16 +159,25 @@ int main(int argc, char **argv){
 
       make_new_movement(new_movement);
 
-      //printf("up %f down %f left %f right %f at steps %d - %f, current x %d current y %d\n", movements[2], movements[3], movements[1], movements[0], steps, world[current_x][current_y], current_x, current_y);
-
       steps++;
-    }while(steps < 20);
+    }while(!(current_x == 11 && current_y == 0) && steps < STEPS);
 
-    show_world();
+    if(current_x == 11 && current_y == 0){
+      reach_objective_on_step[episodes] = steps - 1;
+    }
+
     episodes++;
-  }while(/*!(current_x == 11 && current_y == 0)*/ episodes < 20);
+  }while(episodes < EPISODES);
 
-  printf("Total episodes: %d\n", episodes);
+  for(i = 0; i < EPISODES; i++){
+    if(reach_objective_on_step[i] <= 0){
+      //printf("Didn't reach objective on episode %d\n", i);
+    }
+    else{
+      //printf("Reached the objective in step %d of episode %d\n", reach_objective_on_step[i], i);
+      printf("%d %d\n", i, reach_objective_on_step[i]);
+    }
+  }
 
   return 0;
 }
